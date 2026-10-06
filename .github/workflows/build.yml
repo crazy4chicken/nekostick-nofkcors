@@ -1,0 +1,74 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "true"
+
+jobs:
+  build:
+    name: Build and package extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "10.0.100"
+
+      - name: Restore extension
+        run: dotnet restore Nekostick.NoFkCors.csproj --nologo
+
+      - name: Build extension
+        run: dotnet build Nekostick.NoFkCors.csproj --configuration Release --no-restore --verbosity quiet --nologo
+
+      - name: Package extension archive
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="$(git rev-parse --short=7 "$GITHUB_SHA")"
+          build_out="bin/Release/net10.0"
+          package_root="$RUNNER_TEMP/package/nekostick.nofkcors"
+          archive_path="$RUNNER_TEMP/nekostick-nofkcors.${short_sha}.zip"
+          rm -rf "$RUNNER_TEMP/package" "$archive_path"
+          mkdir -p "$package_root"
+
+          test -s "$build_out/Nekostick.NoFkCors.dll"
+          test -s "$build_out/manifest.json"
+          cp "$build_out/Nekostick.NoFkCors.dll" "$package_root/"
+          cp "$build_out/manifest.json" "$package_root/"
+          cp LICENSE "$package_root/"
+
+          # Zip with the extension directory as the single root entry so the
+          # archive extracts directly into the Host extensions/ directory.
+          (cd "$RUNNER_TEMP/package" && zip -X -q -r "$archive_path" nekostick.nofkcors)
+          test -s "$archive_path"
+          unzip -l "$archive_path" | grep -q 'nekostick.nofkcors/Nekostick.NoFkCors.dll'
+          unzip -l "$archive_path" | grep -q 'nekostick.nofkcors/manifest.json'
+
+          printf 'archive=%s\n' "$archive_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload extension archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # archive: false uploads the zip as-is (single file, no wrapping archive);
+          # the artifact name becomes the file name itself.
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+          archive: false

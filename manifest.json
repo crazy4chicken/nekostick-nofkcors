@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "nekostick.nofkcors",
+  "version": "1.0.0",
+  "entryAssembly": "Nekostick.NoFkCors.dll",
+  "entryType": "Nekostick.NoFkCors.NoFkCorsEntry",
+  "dependencies": [],
+  "requiredHostApiVersion": ">=1.3.0 <2.0.0"
+}
