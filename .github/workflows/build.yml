@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           short_sha="$(git rev-parse --short=7 "$GITHUB_SHA")"
           build_out="bin/Release/net10.0"
-          package_root="$RUNNER_TEMP/package/nekostick.nofkcors"
+          package_root="$RUNNER_TEMP/package"
           archive_path="$RUNNER_TEMP/nekostick-nofkcors.${short_sha}.zip"
           rm -rf "$RUNNER_TEMP/package" "$archive_path"
           mkdir -p "$package_root"
@@ -55,12 +55,13 @@ jobs:
           cp "$build_out/manifest.json" "$package_root/"
           cp LICENSE "$package_root/"
 
-          # Zip with the extension directory as the single root entry so the
-          # archive extracts directly into the Host extensions/ directory.
-          (cd "$RUNNER_TEMP/package" && zip -X -q -r "$archive_path" nekostick.nofkcors)
+          # Zip the files flat at the archive root: the package must extract
+          # directly into the extension directory (extensions/nekostick.nofkcors/)
+          # without a nesting level, or the Host manifest scan misses it.
+          (cd "$package_root" && zip -X -q -r "$archive_path" .)
           test -s "$archive_path"
-          unzip -l "$archive_path" | grep -q 'nekostick.nofkcors/Nekostick.NoFkCors.dll'
-          unzip -l "$archive_path" | grep -q 'nekostick.nofkcors/manifest.json'
+          unzip -l "$archive_path" | grep -q ' Nekostick.NoFkCors.dll$'
+          unzip -l "$archive_path" | grep -q ' manifest.json$'
 
           printf 'archive=%s\n' "$archive_path" >> "$GITHUB_OUTPUT"
 

@@ -27,6 +27,8 @@ dotnet build -c Release
 
 把输出目录中的 `Nekostick.NoFkCors.dll` 与 `manifest.json` 放进 Host 的 `extensions/nekostick.nofkcors/` 目录。需要 Host API >= 1.3，Contracts 1.4.0。
 
+CI 每次推送产出 artifact `nekostick-nofkcors.<shortsha>.zip`，内容平铺在压缩包根部（不含嵌套目录），直接解压到 `extensions/nekostick.nofkcors/` 即可。
+
 ## License
 
 AGPL-3.0，见 LICENSE。
