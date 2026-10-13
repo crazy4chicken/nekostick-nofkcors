@@ -81,9 +81,18 @@ public sealed class NoFkCorsEntry : IExtensionEntry
 
             var response = context.Response;
 
-            // Non-preflight CORS request without a response (or already truncated at the snapshot cap,
-            // where replacing would corrupt the upstream body) passes through.
-            if (response is null || response.Body.Length >= ExtensionRouteSnapshotLimits.MaximumBodyBytes)
+            // Pass through traffic the replacement pipeline cannot represent:
+            // 101 upgrade responses carry hop-by-hop headers (Upgrade/Connection) that the
+            // host legitimately rejects with fail-closed 499+Abort when replaced;
+            // streaming-handler routes hand hooks a metadata-only snapshot (empty body, no
+            // Content-Length), and replacing it aborts the already-started stream. Buffered
+            // empty responses state Content-Length explicitly, so they are still stamped.
+            // A body at the snapshot cap may be host-truncated; replacing it would serve
+            // corrupted bytes, so it also passes through.
+            if (response is null ||
+                response.StatusCode == 101 ||
+                (response.Body.IsDefaultOrEmpty && !response.Headers.ContainsKey("Content-Length")) ||
+                response.Body.Length >= ExtensionRouteSnapshotLimits.MaximumBodyBytes)
             {
                 return ValueTask.FromResult(new ExtensionRouteHookResult(ExtensionRouteHookAction.Continue));
             }

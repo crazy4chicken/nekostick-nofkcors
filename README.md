@@ -16,8 +16,14 @@
 
 ## 已知限制
 
-- 普通 CORS 响应的 body 达到 64KiB 快照上限时不改写直接放行，避免截断大响应；
+以下流量直通（Continue），不盖章 CORS 头：
+
+- WebSocket / 101 升级响应：替换会被宿主合法 fail-closed（499 + Abort）；
+- streaming handler 路由（SSE 等）：钩子只能拿到空体元数据快照，替换会中止进行中的流（特征判定：空 body 且无 `Content-Length`）；
+- body 达到 64KiB 快照上限的响应：快照可能被宿主截断，替换会污染大响应；
 - allow-all 使用通配符 `*`，不覆盖 credentialed 请求。
+
+宿主版本提示：路由钩子在 `7dcbc9ca`（2026-10-07）之前对超限流量 fail-closed 中止；旧版宿主上本扩展会让 >64KiB 请求/响应与 WebSocket 中断。建议宿主不早于该提交。
 
 ## 构建与部署
 
